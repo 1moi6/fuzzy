@@ -1,115 +1,68 @@
 import numpy as np
 import random
 
-
-def genetico():
-	tpop = 10  
-	tcrom = 5  
-	nsim = 100  
-	ngens = 500
-	vgen = [i for i in range(ngens)] 
-	pop0 = [list(p) for p in np.random.randint(0,len(vgen),size=(tpop,tcrom))] 
-	pop0[-1]=[20,20,20,20,20]
-
-	npais = int(0.4*tpop)  
-	ncros = int(0.4*tpop)  
-	nmtt = int(0.2*tpop) 
-	nmpc = int(0.2*tcrom)  
-	ngcrs = int(0.5*tcrom)  
-	unico = True
-
-	if unico and len(vgen)<tcrom:
-		unico = False
-
-	pars = [npais, ncros ,nmtt ,nmpc , ngcrs , unico]
-	#print(pars)
-
-	fvalm = []  
-	fvala = []
-	for i in range(nsim):
-		obj0 = objetivo(pop0) 
-		pop1 = nextgen(pop0,obj0,vgen,pars) 
-		obj1 = objetivo(pop1)  #print(pop1)
-		#input()
-		fvalm.append(np.min(obj1))
-		fvala.append(np.mean(obj1))
-		print([fvalm[-1],fvala[-1]])
-		pop0 = pop1
-
-	return pop0,[fvalm,fvala]
-
-
-def nextgen(pop,val,vgen,pars):
-	npais = pars[0]  
-	ncros = pars[1] 
-	nmuta = pars[2]  
-	ngmut = pars[3] 
-	ptcrs = pars[4]  
-	unico = pars[5]
-
-	vpop = np.array(pop)  
-	vval = np.array(val)
- 
-	lp = len(vpop)  
-	lcrm = len(vpop[0])   
-	lvg = len(vgen)
-	npop = [np.nan]*lp  
-	cnt = 0 
-
-	if unico and lvg<lcrm:
-		raise Exception("Configuração de ngens e tcrom incompativeis")
-
-	# selecao dos pais
-	avals = np.argsort(vval)[0:npais]
-	for a in avals:
-		if unico:
-			la = len(set(vpop[a]))
-			xx = list(set(vpop[a]))+random.sample(vgen,lcrm-la) 
-		else:
-			xx =  vpop[a] 
-		npop[cnt] = list(xx)
-		cnt = cnt+1
+class genetico():
+	def __init__(self):
+		self.objetivo = lambda x:sum(x)
+		self.tol = 1.0e-5
+		self.nGenetations = 10000
+		self.tCrom = 36
+		self.genValues = [i for i in range(6)]
+		self.nPop = 100
+		self.population = [[random.choice(self.genValues) for _ in range(self.tCrom)] for i in range(self.nPop)]
+		self.fitness = [np.nan for _ in range(self.tCrom)]
+		self.params = {"nParents":int(0.4*self.nPop),
+						"sizeCrossover":int(0.4*self.nPop),
+						"sizeMutation":int(0.2*self.nPop),
+						"mutationRate": 5/self.tCrom}
 	
-	# crosover
-	for i in range(ncros):
-		idvs = np.random.randint(0,lp,2)
-		idv1 = vpop[idvs[0]]  
-		idv2 = vpop[idvs[1]] 
-		### primeiro metodo de crossover 
-		#idv = list(idv1[0:ptcrs])+list(idv2[ptcrs:]) 
-		### segundo método de crossover
-		crspts = random.sample(range(lcrm),k = ptcrs)
-		idv = list(idv1)
-		for pts in crspts:
-			idv[pts] =  idv2[pts]
-		############################
-		while len(set(idv))<lcrm and unico:
-			gs = np.random.randint(0,lvg,1)[0]
-			idv.append(vgen[gs])
-			idv = list(set(idv))
-		npop[cnt] = list(idv)
-		cnt = cnt + 1
+	def crossover(self,parents,size):
+		childs = []
+		while (len(childs)<size):
+			parent1,parent2 = random.choices(parents,k=2)
+			crossover_point = random.randint(5, len(parent1) - 5)
+			childs.append(parent1[:crossover_point] + parent2[crossover_point:])
+			
+		return childs
 	
-	# mutacao
-	for i in range(nmuta):
-		idvs = np.random.randint(0,lp,1)[0] 
-		idv = list(vpop[idvs])  #print(len(idv))
-		ptm = np.random.randint(0,lcrm,size=(ngmut,))
-		for pt in ptm:
-			gs = np.random.randint(0,lvg,1)[0]
-			idv[pt] = vgen[gs]
-		while len(set(idv))<lcrm and unico:
-			pt = np.random.randint(0,lcrm,1)[0]
-			gs = np.random.randint(0,lvg,1)[0]
-			idv.append(vgen[gs])  
-			idv = list(set(idv))
-		npop[cnt] = list(idv)
-		cnt = cnt + 1
+	def mutate(self,parents,size):
+		mutated_individuals = []
+		while (len(mutated_individuals)<size):
+			individual = random.choice(parents)
+			mutated_individual = []
+			for gene in individual:
+				if random.random() < self.params["mutationRate"]:
+					mutated_individual+= [min(max(0,gene+random.choice([-1,1])),5)]
+				else:
+					mutated_individual += [gene]
+			
+			mutated_individuals.append(mutated_individual)
+		
+		return mutated_individuals
 
-	return npop
+	# Algoritmo genético
+	def genetic_algorithm(self):
+		generation = 1
+		contagem = 0
+		best0 = 1
+		while generation < self.nGenetations and contagem<50:
+			new_population = []
+			self.fitness = [self.objetivo(individual) for individual in self.population]	
+			idx_parents = np.argsort(self.fitness)[0:self.params["nParents"]]
+			print(f"Generation {generation}: Best fitness = {self.fitness[idx_parents[0]]}, Best individual = {self.population[idx_parents[0]]}")
 
-def objetivo(x):
-	#oba = np.array([np.sum(xa)-100 for xa in x])
-	#obj = oba**2
-	obj = (np.sum(x,axis=1)-100)**2
-	return list(obj)
+			parents = [self.population[i] for i in idx_parents]
+			new_population.extend(parents)
+			newchilds = self.crossover(parents,self.params["sizeCrossover"])
+			new_population.extend(newchilds)
+			newmutateds = self.mutate(new_population,self.params["sizeMutation"]) 
+			new_population.extend(newmutateds)
+			self.population = new_population
+			generation = generation + 1
+			best1 = self.fitness[idx_parents[0]]
+			diferenca = np.abs(best0-best1)<self.tol
+			if diferenca:
+				contagem = contagem +1
+			else:
+				contagem = 0
+			best0 = self.fitness[idx_parents[0]]  
